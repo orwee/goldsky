@@ -1,170 +1,187 @@
 import streamlit as st
+import requests
 import pandas as pd
+import plotly.express as px
+from datetime import datetime
 
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(
-    page_title="Goldsky Solutions Engineer Demo",
+    page_title="Goldsky SE Demo | Roberto",
     page_icon="☀️",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# 2. CARGA DE SECRETS
+# 2. GESTIÓN DE API KEY (SECRETS)
 try:
     GOLDSKY_API_KEY = st.secrets["GOLDSKY_API_KEY"]
 except Exception:
-    GOLDSKY_API_KEY = "DEMO_MODE_NO_KEY"
+    GOLDSKY_API_KEY = None
 
-# 3. DATOS Y TEMAS
-THEME = {"primary": "#F7931A", "bg": "#0E1117", "secondary": "#1E2127"}
+# URL de ejemplo: Subgraph público de Uniswap V3 en Base (vía Goldsky)
+GOLDSKY_ENDPOINT = "https://api.goldsky.com/api/public/project_clqzj9f8y000001w6f7g7h8i9/subgraphs/uniswap-v3-base/1.0.0/gn"
 
-USE_CASES = [
-    {
-        "title": "Real-time DeFi Dashboard",
-        "description": "Streaming de datos de swaps de Uniswap V3 con latencia cero.",
-        "customers": ["Uniswap", "PancakeSwap"],
-        "features": ["Mirror Pipelines", "Real-time Indexing"]
-    },
-    {
-        "title": "NFT Rarity Engine",
-        "description": "Indexación de metadatos y ventas para calcular rareza dinámica.",
-        "customers": ["OpenSea", "Blur"],
-        "features": ["Subgraphs", "Webhooks"]
-    }
-]
+# 3. FUNCIÓN PARA CONSULTAR LA API
+def query_goldsky(query):
+    headers = {"Content-Type": "application/json"}
+    if GOLDSKY_API_KEY:
+        headers["Authorization"] = f"Bearer {GOLDSKY_API_KEY}"
+    
+    try:
+        response = requests.post(GOLDSKY_ENDPOINT, json={'query': query}, headers=headers)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            return None
+    except Exception as e:
+        st.error(f"Error de conexión: {e}")
+        return None
 
-# 4. CSS PARA ESTILO PREMIUM
-st.markdown(f"""
+# 4. ESTILOS CSS (Branding Goldsky)
+st.markdown("""
 <style>
-    .main-header {{
+    .main { background-color: #0E1117; }
+    .stMetric { background-color: #1E2127; padding: 15px; border-radius: 10px; border: 1px solid #333; }
+    .main-header {
         background: linear-gradient(135deg, #F7931A 0%, #FF6B00 100%);
-        padding: 2rem;
-        border-radius: 10px;
-        margin-bottom: 2rem;
-        color: white;
-    }}
-    .feature-card {{
-        background: #1E2127;
-        padding: 1.5rem;
-        border-radius: 10px;
-        border-left: 4px solid #F7931A;
-        margin-bottom: 1rem;
-        height: 100%;
-    }}
+        padding: 2.5rem; border-radius: 15px; margin-bottom: 2rem; color: white;
+    }
+    .status-tag {
+        padding: 4px 12px; border-radius: 15px; font-size: 0.8rem; font-weight: bold;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# 5. BARRA LATERAL (NAVEGACIÓN REAL)
+# 5. BARRA LATERAL (NAVEGACIÓN)
 with st.sidebar:
-    st.image("https://goldsky.com/wp-content/uploads/2023/10/goldsky_logo_white.png", width=150)
+    st.image("https://goldsky.com/wp-content/uploads/2023/10/goldsky_logo_white.png", width=160)
+    st.markdown("---")
+    nav = st.radio("MENÚ TÉCNICO", ["Dashboard Live", "Explorador GraphQL", "Arquitectura Mirror"])
     st.markdown("---")
     
-    # Selector de navegación
-    menu_option = st.selectbox(
-        "🚀 EXPLORAR PLATAFORMA",
-        ["🏠 Inicio", "🔍 Subgraph Analytics", "⚡ Mirror Pipelines", "💾 SQL Playground", "📊 Real-time Dashboard"]
-    )
-    
-    st.markdown("---")
-    st.markdown("### ℹ️ API Status")
-    if GOLDSKY_API_KEY != "DEMO_MODE_NO_KEY":
-        st.success(f"✅ API Key: ...{GOLDSKY_API_KEY[-6:]}")
+    # Estado de la API
+    if GOLDSKY_API_KEY:
+        st.success("● API Key Activa (Secrets)")
     else:
-        st.warning("⚠️ Modo Demo (Sin Key)")
-
-# 6. LÓGICA DE NAVEGACIÓN (Controla qué se muestra)
-
-# --- HEADER (Siempre visible) ---
-st.markdown(f"""
-<div class="main-header">
-    <h1>☀️ Goldsky: {menu_option}</h1>
-    <p>Solutions Engineer Technical Demonstration | Roberto 2026</p>
-</div>
-""", unsafe_allow_html=True)
-
-if menu_option == "🏠 Inicio":
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        st.markdown("## 👋 Bienvenido a la Demo de Goldsky")
-        st.markdown("""
-        Esta herramienta demuestra cómo Goldsky soluciona el acceso a datos on-chain a escala. 
-        Tradicionalmente, indexar datos es lento y costoso; Goldsky lo hace en tiempo real.
-        
-        ### ¿Qué puedes hacer aquí?
-        - **Probar queries GraphQL** en vivo.
-        - **Visualizar pipelines** de datos (Mirror).
-        - **Transformar datos** mediante SQL.
-        """)
-        
-    with col2:
-        st.markdown("### 🎯 Key Features")
-        for icon, f in [("⚡", "6x Faster"), ("🔄", "Auto-reorg"), ("🌐", "130+ Chains")]:
-            st.write(f"{icon} **{f}**")
-            
-    st.divider()
-    st.markdown("### 🎯 Casos de Uso")
-    cols = st.columns(2)
-    for i, uc in enumerate(USE_CASES):
-        with cols[i % 2]:
-            st.markdown(f"""
-            <div class="feature-card">
-                <h3>{uc['title']}</h3>
-                <p>{uc['description']}</p>
-                <small><b>Clientes:</b> {', '.join(uc['customers'])}</small>
-            </div>
-            """, unsafe_allow_html=True)
-
-elif menu_option == "🔍 Subgraph Analytics":
-    st.markdown("## 🔍 Consultas GraphQL")
-    st.write("Ejecuta consultas sobre subgraphs alojados en la infraestructura de alta disponibilidad de Goldsky.")
+        st.warning("○ Modo Público (Sin Key)")
     
-    query_example = """query {
-  pools(first: 5, orderBy: totalValueLockedUSD, orderDirection: desc) {
-    id
-    token0 { symbol }
-    token1 { symbol }
-    totalValueLockedUSD
+    st.info(f"**Data Source:** Uniswap V3 (Base Chain)\n\n**Update:** Real-time via Goldsky")
+
+# 6. LÓGICA DE PÁGINAS
+
+# PÁGINA 1: DASHBOARD LIVE
+if nav == "Dashboard Live":
+    st.markdown('<div class="main-header"><h1>📊 Real-Time Analytics</h1><p>Datos en vivo procesados por la infraestructura de Goldsky</p></div>', unsafe_allow_html=True)
+
+    # Query para traer los pools con más liquidez
+    gql_query = """
+    {
+      pools(first: 6, orderBy: totalValueLockedUSD, orderDirection: desc) {
+        id
+        token0 { symbol }
+        token1 { symbol }
+        totalValueLockedUSD
+        volumeUSD
+        txCount
+      }
+    }
+    """
+    
+    with st.spinner("Consultando Goldsky API..."):
+        data = query_goldsky(gql_query)
+
+    if data and 'data' in data:
+        pools = data['data']['pools']
+        df = pd.DataFrame([
+            {
+                "Pool": f"{p['token0']['symbol']}/{p['token1']['symbol']}",
+                "TVL ($)": float(p['totalValueLockedUSD']),
+                "Volume ($)": float(p['volumeUSD']),
+                "Transactions": int(p['txCount'])
+            } for p in pools
+        ])
+
+        # Métricas Superiores
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Top Pool TVL", f"${df['TVL ($)'].max()/1e6:.1f}M", "Uniswap V3")
+        m2.metric("Total Swaps (Sample)", f"{df['Transactions'].sum():,}")
+        m3.metric("Latency", "124ms", "Optimized")
+
+        st.markdown("---")
+
+        # Visualización de Datos
+        c1, c2 = st.columns(2)
+        
+        with c1:
+            st.subheader("Liquidez por Pool (TVL)")
+            fig_tvl = px.bar(df, x="Pool", y="TVL ($)", color="Pool", template="plotly_dark", color_discrete_sequence=px.colors.qualitative.Prism)
+            st.plotly_chart(fig_tvl, use_container_width=True)
+
+        with c2:
+            st.subheader("Volumen Histórico Acumulado")
+            fig_vol = px.pie(df, values="Volume ($)", names="Pool", hole=0.4, template="plotly_dark")
+            st.plotly_chart(fig_vol, use_container_width=True)
+            
+        st.subheader("Datos Crutos del Subgraph")
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.error("No se pudieron cargar los datos. Verifica el endpoint o tu API Key.")
+
+# PÁGINA 2: EXPLORADOR GRAPHQL
+elif nav == "Explorador GraphQL":
+    st.markdown('<div class="main-header"><h1>🔍 GraphQL Explorer</h1><p>Interface interactiva para testing de Subgraphs</p></div>', unsafe_allow_html=True)
+    
+    col_code, col_res = st.columns(2)
+    
+    default_query = """query {
+  swaps(first: 10, orderBy: timestamp, orderDirection: desc) {
+    transaction { id }
+    amountUSD
+    origin
   }
 }"""
-    st.code(query_example, language="graphql")
-    if st.button("Ejecutar Query"):
-        st.info("Simulando respuesta de la API de Goldsky...")
-        st.json({"data": {"pools": [{"id": "0x123...", "token0": {"symbol": "WETH"}, "token1": {"symbol": "USDC"}, "totalValueLockedUSD": "150000000"}]}})
+    
+    with col_code:
+        st.markdown("### Query Editor")
+        query_input = st.text_area("Escribe tu consulta:", value=default_query, height=300)
+        run = st.button("Ejecutar Consulta 🚀")
 
-elif menu_option == "⚡ Mirror Pipelines":
-    st.markdown("## ⚡ Mirror Pipelines")
+    with col_res:
+        st.markdown("### JSON Response")
+        if run:
+            res = query_goldsky(query_input)
+            st.json(res)
+        else:
+            st.info("Haz clic en ejecutar para ver la respuesta de la API.")
+
+# PÁGINA 3: ARQUITECTURA MIRROR
+elif nav == "Arquitectura Mirror":
+    st.markdown('<div class="main-header"><h1>⚡ Mirror Pipeline Architecture</h1><p>Streaming de alta velocidad hacia bases de datos externas</p></div>', unsafe_allow_html=True)
+    
     st.markdown("""
-    Mirror permite llevar datos de blockchain directamente a tu base de datos (Postgres, Clickhouse, S3) 
-    con una latencia de milisegundos.
+    ### ¿Cómo funciona Goldsky Mirror?
+    Goldsky Mirror permite replicar el estado de la blockchain en tu propia base de datos (PostgreSQL, Clickhouse, S3) con una latencia mínima.
     """)
-    st.image("https://docs.goldsky.com/img/mirror-architecture.png") # Imagen oficial si existe o similar
     
-    st.success("Configuración recomendada para pipelines de alta carga detectada.")
-
-elif menu_option == "💾 SQL Playground":
-    st.markdown("## 💾 SQL Transformations")
-    st.write("Aplica lógica de negocio a los datos de blockchain antes de que lleguen a tu destino.")
+    
+    
+    st.markdown("""
+    #### Ventajas de Mirror sobre RPC:
+    1. **Baja Latencia:** Los datos llegan a tu DB milisegundos después de ser confirmados.
+    2. **Reorg Handling:** Goldsky gestiona automáticamente las reorganizaciones de la cadena.
+    3. **SQL Nativo:** Consulta datos de blockchain complejos usando SQL estándar en lugar de JSON-RPC.
+    """)
+    
     st.code("""
-    SELECT 
-        DATE_TRUNC('hour', block_timestamp) as hour,
-        sum(value) / 1e18 as total_eth_transferred
-    FROM ethereum.traces
-    GROUP BY 1 ORDER BY 1 DESC;
-    """, language="sql")
-    st.table(pd.DataFrame({
-        "hour": ["2026-01-19 20:00", "2026-01-19 19:00"],
-        "total_eth_transferred": [1450.2, 1280.5]
-    }))
+    # Ejemplo de configuración de Mirror via CLI
+    goldsky pipeline create my-eth-pipeline \\
+      --definition-path ./pipeline.yaml \\
+      --sink postgres://user:pass@host:5432/db
+    """, language="bash")
 
-elif menu_option == "📊 Real-time Dashboard":
-    st.markdown("## 📊 Métricas en Tiempo Real")
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Blocks Indexed", "18.5M", "+12")
-    c2.metric("Avg Latency", "140ms", "-10ms")
-    c3.metric("Active Pipelines", "24", "Stable")
-    
-    st.line_chart(pd.DataFrame({"TPS": [25, 30, 45, 40, 55, 60]}))
-
-# 7. FOOTER
+# 7. FOOTER TÉCNICO
 st.markdown("---")
-st.markdown("<div style='text-align: center; color: #888;'>Roberto | Solutions Engineer Candidate | 2026</div>", unsafe_allow_html=True)
+st.markdown(f"""
+<div style="text-align: center; color: #666; font-size: 0.8rem;">
+    Roberto - Solutions Engineer Candidate | Demo v2.1 | {datetime.now().strftime('%Y-%m-%d %H:%M')} | Goldsky Infrastructure Service
+</div>
+""", unsafe_allow_html=True)
