@@ -1,65 +1,69 @@
 import streamlit as st
 import requests
 import pandas as pd
+from datetime import datetime
 
-# Configuración de la página
-st.set_page_config(page_title="Goldsky Dashboard", layout="wide")
+# Configuración de página
+st.set_page_config(page_title="Goldsky Dashboard - mysubgraph", layout="wide")
 
-# 1. Obtener la API Key desde secrets
+# 1. Configuración de API y Endpoint
 API_KEY = st.secrets["GOLDSKY_API_KEY"]
-
-# 2. Configurar el endpoint de tu subgraph (cambia esto por tu URL real)
-# Ejemplo: https://api.goldsky.com/api/public/project_id/subgraphs/name/version/gn
 GOLDSKY_URL = "https://api.goldsky.com/api/public/project_cmkljro9cflkv01wh7po6an10/subgraphs/mysubgraph/1.0.0/gn"
 
-def fetch_goldsky_data(query):
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json"
-    }
-    response = requests.post(GOLDSKY_URL, json={'query': query}, headers=headers)
-    
-    if response.status_code == 200:
-        return response.json()
+def run_query(query):
+    headers = {"Authorization": f"Bearer {API_KEY}"}
+    request = requests.post(GOLDSKY_URL, json={'query': query}, headers=headers)
+    if request.status_code == 200:
+        return request.json()
     else:
-        st.error(f"Error {response.status_code}: {response.text}")
+        st.error(f"Error en la consulta: {request.status_code}")
         return None
 
-# 3. Definir tu consulta GraphQL
-# Personaliza esta consulta según las entidades de tu subgraph
-gql_query = """
-{
-  transfers(first: 10, orderBy: blockTimestamp, orderDirection: desc) {
+# --- UI: Encabezado y Métricas ---
+st.title("🚀 Goldsky Subgraph Monitor")
+st.caption(f"Endpoint: {GOLDSKY_URL}")
+
+# Simulación de métricas basadas en tu reporte actual
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Bloque Actual", "41,110,043", "Live")
+col2.metric("Entidades Totales", "489")
+col3.metric("Nuevas (24h)", "230", "+15%")
+col4.metric("Latencia API", "70.5ms")
+
+st.divider()
+
+# --- UI: Consultas a Entidades ---
+st.subheader("🔍 Explorador de Datos")
+
+# Nota: Como no conozco tu esquema exacto, usaremos un ejemplo genérico. 
+# Debes reemplazar 'entities' por el nombre de tu tabla (ej. 'transfers', 'mints', etc.)
+entity_name = st.text_input("Nombre de la Entidad a consultar:", "transfers") 
+
+query_string = f"""
+{{
+  {entity_name}(first: 10, orderBy: blockNumber, orderDirection: desc) {{
     id
-    from
-    to
-    value
-    blockTimestamp
-  }
-}
+    blockNumber
+    timestamp
+  }}
+}}
 """
 
-st.title("📊 Panel de Datos Goldsky")
+if st.button('Ejecutar Consulta GraphQL'):
+    with st.spinner('Obteniendo datos...'):
+        result = run_query(query_string)
+        if result and 'data' in result:
+            data_list = result['data'][entity_name]
+            if data_list:
+                df = pd.DataFrame(data_list)
+                st.table(df)
+            else:
+                st.warning("No se encontraron registros para esta entidad.")
 
-if st.button('Actualizar Datos'):
-    with st.spinner('Consultando Goldsky...'):
-        data = fetch_goldsky_data(gql_query)
-        
-        if data and 'data' in data:
-            # Extraer la lista de datos (ajustar según tu esquema)
-            records = data['data']['transfers']
-            df = pd.DataFrame(records)
-            
-            # Mostrar métricas rápidas
-            col1, col2 = st.columns(2)
-            col1.metric("Total Registros", len(df))
-            col2.metric("Último ID", df['id'].iloc[0] if not df.empty else "N/A")
-            
-            # Mostrar tabla
-            st.subheader("Últimas Transferencias")
-            st.dataframe(df, use_container_width=True)
-            
-            # Ejemplo de gráfico simple si hay valores numéricos
-            if 'value' in df.columns:
-                df['value'] = pd.to_numeric(df['value'])
-                st.line_chart(df['value'])
+# --- UI: Logs de Sincronización ---
+with st.expander("Ver Logs de Depuración (Debug Logs)"):
+    st.code("""
+    [Info] 1/21/2026 · 16:29:36 - Committed write batch, block: 41110013
+    [Debug] 1/21/2026 · 16:29:36 - Processing 1255 triggers
+    [Info] 1/21/2026 · 16:29:33 - Committed write batch, block: 41110012
+    """, language="bash")
